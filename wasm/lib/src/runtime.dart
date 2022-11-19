@@ -11,20 +11,26 @@ import 'package:ffi/ffi.dart';
 part 'runtime.g.dart';
 
 WasmRuntime wasmRuntimeFactory(
-  WasmRuntimeBindings lib,
-  Exception Function(String message) trapExceptionFactory,
+  WasmRuntimeDelegate delegate,
 ) {
-  return WasmRuntime._(lib, trapExceptionFactory);
+  return WasmRuntime._(delegate);
+}
+
+abstract class WasmRuntimeDelegate {
+  WasmRuntimeBindings get lib;
+
+  Exception trapExceptionFactory(
+    String message,
+  );
 }
 
 class WasmRuntime {
-  final _traps = <String, _WasmTrapsEntry>{};
+  final Map<String, _WasmTrapsEntry> _traps;
   late final Pointer<WasmerEngine> engine;
   late final Pointer<WasmerStore> store;
-  final Exception Function(String message) trapExceptionFactory;
-  final WasmRuntimeBindings bindings;
+  final WasmRuntimeDelegate delegate;
 
-  WasmRuntime._(this.bindings, this.trapExceptionFactory) {
+  WasmRuntime._(this.delegate) : _traps = <String, _WasmTrapsEntry>{} {
     engine = _checkNotEqual(
       bindings.engine_new(),
       nullptr,
@@ -37,6 +43,10 @@ class WasmRuntime {
       'Failed to create Wasm store.',
     );
     bindings.set_finalizer_for_store(this, store);
+  }
+
+  WasmRuntimeBindings get bindings {
+    return delegate.lib;
   }
 
   Pointer<WasmerModule> compile(Object owner, Uint8List data) {
@@ -134,7 +144,7 @@ class WasmRuntime {
       final entry = _traps.remove(message);
       if (entry == null) {
         // TODO(#87): Report a full stack trace to the user.
-        throw trapExceptionFactory(message);
+        throw delegate.trapExceptionFactory(message);
       }
       // ignore: only_throw_errors
       throw entry.exception;

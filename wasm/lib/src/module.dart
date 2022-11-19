@@ -26,11 +26,24 @@ WasmModule wasmModuleCompileSync(
 }
 
 final WasmRuntime _runtime = wasmRuntimeFactory(
-  _wasmBindings,
-  (final message) => _WasmModuleTrapExceptionImpl(
-    message,
-  ),
+  _WasmRuntimeDelegateImpl(),
 );
+
+class _WasmRuntimeDelegateImpl implements WasmRuntimeDelegate {
+  const _WasmRuntimeDelegateImpl();
+
+  @override
+  WasmRuntimeBindings get lib => _wasmBindings;
+
+  @override
+  Exception trapExceptionFactory(
+    String message,
+  ) {
+    return _WasmModuleTrapExceptionImpl(
+      message,
+    );
+  }
+}
 
 final WasmRuntimeBindings _wasmBindings = () {
   final bindings = WasmRuntimeBindings();
