@@ -70,7 +70,7 @@ def dartFnTypeName(n):
 
 
 def dartFnMembName(n):
-    return '_' + removePrefix(n)
+    return removePrefix(n)
 
 
 def nativeTypeToFfi(n):
@@ -415,7 +415,7 @@ class WasmRuntimeBindings {
   void initBindings(DynamicLibrary _lib) {
 /* <RUNTIME_LOAD> */
 
-    if (_Dart_InitializeApiDL(NativeApi.initializeApiDLData) != 0) {
+    if (Dart_InitializeApiDL(NativeApi.initializeApiDLData) != 0) {
       throw _WasmRuntimeErrorImpl('Failed to initialize Dart API');
     }
   }
