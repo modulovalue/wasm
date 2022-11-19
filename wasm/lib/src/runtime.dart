@@ -76,13 +76,10 @@ class WasmRuntime {
     final dataVec = calloc<WasmerByteVec>();
     dataVec.ref.data = dataPtr;
     dataVec.ref.length = data.length;
-
     final modulePtr = bindings.module_new(store, dataVec);
-
     calloc
       ..free(dataPtr)
       ..free(dataVec);
-
     _checkNotEqual(modulePtr, nullptr, 'Wasm module compilation failed.');
     delegate.finalizeModule(owner, modulePtr);
     return modulePtr;
@@ -196,13 +193,17 @@ class WasmRuntime {
     calloc.free(exports);
   }
 
-  int externKind(Pointer<WasmerExtern> extern) => bindings.extern_kind(extern);
+  int externKind(Pointer<WasmerExtern> extern) {
+    return bindings.extern_kind(extern);
+  }
 
-  Pointer<WasmerFunc> externToFunction(Pointer<WasmerExtern> extern) =>
-      bindings.extern_as_func(extern);
+  Pointer<WasmerFunc> externToFunction(Pointer<WasmerExtern> extern) {
+    return bindings.extern_as_func(extern);
+  }
 
-  Pointer<WasmerExtern> functionToExtern(Pointer<WasmerFunc> func) =>
-      bindings.func_as_extern(func);
+  Pointer<WasmerExtern> functionToExtern(Pointer<WasmerFunc> func) {
+    return bindings.func_as_extern(func);
+  }
 
   List<int> getArgTypes(Pointer<WasmerFunctype> funcType) {
     var types = <int>[];
@@ -232,11 +233,13 @@ class WasmRuntime {
     maybeThrowTrap(bindings.func_call(func, args, results), source);
   }
 
-  Pointer<WasmerMemory> externToMemory(Pointer<WasmerExtern> extern) =>
-      bindings.extern_as_memory(extern);
+  Pointer<WasmerMemory> externToMemory(Pointer<WasmerExtern> extern) {
+    return bindings.extern_as_memory(extern);
+  }
 
-  Pointer<WasmerExtern> memoryToExtern(Pointer<WasmerMemory> memory) =>
-      bindings.memory_as_extern(memory);
+  Pointer<WasmerExtern> memoryToExtern(Pointer<WasmerMemory> memory) {
+    return bindings.memory_as_extern(memory);
+  }
 
   Pointer<WasmerMemory> newMemory(
     Object owner,
@@ -318,20 +321,25 @@ class WasmRuntime {
     return global;
   }
 
-  Pointer<WasmerGlobaltype> getGlobalType(Pointer<WasmerGlobal> global) =>
-      bindings.global_type(global);
+  Pointer<WasmerGlobaltype> getGlobalType(Pointer<WasmerGlobal> global) {
+    return bindings.global_type(global);
+  }
 
-  int getGlobalKind(Pointer<WasmerGlobaltype> globalType) =>
-      bindings.valtype_kind(bindings.globaltype_content(globalType));
+  int getGlobalKind(Pointer<WasmerGlobaltype> globalType) {
+    return bindings.valtype_kind(bindings.globaltype_content(globalType));
+  }
 
-  int getGlobalMut(Pointer<WasmerGlobaltype> globalType) =>
-      bindings.globaltype_mutability(globalType);
+  int getGlobalMut(Pointer<WasmerGlobaltype> globalType) {
+    return bindings.globaltype_mutability(globalType);
+  }
 
-  Pointer<WasmerGlobal> externToGlobal(Pointer<WasmerExtern> extern) =>
-      bindings.extern_as_global(extern);
+  Pointer<WasmerGlobal> externToGlobal(Pointer<WasmerExtern> extern) {
+    return bindings.extern_as_global(extern);
+  }
 
-  Pointer<WasmerExtern> globalToExtern(Pointer<WasmerGlobal> global) =>
-      bindings.global_as_extern(global);
+  Pointer<WasmerExtern> globalToExtern(Pointer<WasmerGlobal> global) {
+    return bindings.global_as_extern(global);
+  }
 
   dynamic globalGet(Pointer<WasmerGlobal> global, int type) {
     final wasmerVal = newValue(type, 0);
@@ -390,12 +398,13 @@ class WasmRuntime {
     bindings.wasi_config_capture_stderr(config);
   }
 
-  Pointer<WasmerWasiEnv> newWasiEnv(Pointer<WasmerWasiConfig> config) =>
-      _checkNotEqual(
-        bindings.wasi_env_new(config),
-        nullptr,
-        'Failed to create WASI environment.',
-      );
+  Pointer<WasmerWasiEnv> newWasiEnv(Pointer<WasmerWasiConfig> config) {
+    return _checkNotEqual(
+      bindings.wasi_env_new(config),
+      nullptr,
+      'Failed to create WASI environment.',
+    );
+  }
 
   void getWasiImports(
     Pointer<WasmerModule> mod,
@@ -501,7 +510,7 @@ class WasmExportDescriptor {
 class _WasmTrapsEntry {
   final Object exception;
 
-  _WasmTrapsEntry(this.exception);
+  const _WasmTrapsEntry(this.exception);
 }
 
 class _WasiStreamIterator implements Iterator<List<int>> {
@@ -527,7 +536,7 @@ class _WasiStreamIterable extends Iterable<List<int>> {
   final Pointer<WasmerWasiEnv> _env;
   final Function _reader;
 
-  _WasiStreamIterable(this._env, this._reader);
+  const _WasiStreamIterable(this._env, this._reader);
 
   @override
   Iterator<List<int>> get iterator => _WasiStreamIterator(_env, _reader);
@@ -537,9 +546,10 @@ String getSignatureString(
   String name,
   List<int> argTypes,
   int returnType,
-) =>
-    '${wasmerValKindName(returnType)} '
+) {
+  return '${wasmerValKindName(returnType)} '
     '$name(${argTypes.map(wasmerValKindName).join(', ')})';
+}
 
 class _WasmRuntimeErrorImpl extends Error {
   final String message;
