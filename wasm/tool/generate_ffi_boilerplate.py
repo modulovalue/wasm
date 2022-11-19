@@ -414,10 +414,6 @@ class WasmRuntimeBindings {
   
   void initBindings(DynamicLibrary _lib) {
 /* <RUNTIME_LOAD> */
-
-    if (Dart_InitializeApiDL(NativeApi.initializeApiDLData) != 0) {
-      throw _WasmRuntimeErrorImpl('Failed to initialize Dart API');
-    }
   }
 }
 

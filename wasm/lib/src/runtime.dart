@@ -13,7 +13,23 @@ part 'runtime.g.dart';
 WasmRuntime wasmRuntimeFactory(
   WasmRuntimeDelegate delegate,
 ) {
-  return WasmRuntime._(delegate);
+  final engine = _checkNotEqualGlobal(
+    delegate.lib.engine_new(),
+    nullptr,
+    'Failed to initialize Wasm engine.',
+    delegate,
+  );
+  final store = _checkNotEqualGlobal(
+    delegate.lib.store_new(engine),
+    nullptr,
+    'Failed to create Wasm store.',
+    delegate,
+  );
+  return WasmRuntime._(
+    delegate,
+    engine,
+    store,
+  );
 }
 
 abstract class WasmRuntimeDelegate {
@@ -21,6 +37,10 @@ abstract class WasmRuntimeDelegate {
   WasmRuntimeBindings get lib;
 
   Exception trapExceptionFactory(
+    String message,
+  );
+
+  Error errorFactory(
     String message,
   );
 
@@ -45,30 +65,25 @@ abstract class WasmRuntimeDelegate {
 
 class WasmRuntime {
   final Map<String, _WasmTrapsEntry> _traps;
-  late final Pointer<WasmerEngine> engine;
-  late final Pointer<WasmerStore> store;
+  final Pointer<WasmerEngine> engine;
+  final Pointer<WasmerStore> store;
   final WasmRuntimeDelegate delegate;
 
-  WasmRuntime._(this.delegate) : _traps = <String, _WasmTrapsEntry>{} {
-    engine = _checkNotEqual(
-      bindings.engine_new(),
-      nullptr,
-      'Failed to initialize Wasm engine.',
-    );
-    delegate.finalizeEngine(this, engine);
-    store = _checkNotEqual(
-      bindings.store_new(engine),
-      nullptr,
-      'Failed to create Wasm store.',
-    );
-    delegate.finalizeStore(this, store);
+  WasmRuntime._(
+    this.delegate,
+    this.engine,
+    this.store,
+  ) : _traps = <String, _WasmTrapsEntry>{} {
+    delegate
+      ..finalizeEngine(this, engine)
+      ..finalizeStore(this, store);
   }
 
   WasmRuntimeBindings get bindings {
     return delegate.lib;
   }
 
-  Pointer<WasmerModule> compile(Object owner, Uint8List data) {
+  Pointer<WasmerModule> compile(Uint8List data) {
     final dataPtr = calloc<Uint8>(data.length);
     for (var i = 0; i < data.length; ++i) {
       dataPtr[i] = data[i];
@@ -81,7 +96,6 @@ class WasmRuntime {
       ..free(dataPtr)
       ..free(dataVec);
     _checkNotEqual(modulePtr, nullptr, 'Wasm module compilation failed.');
-    delegate.finalizeModule(owner, modulePtr);
     return modulePtr;
   }
 
@@ -219,7 +233,7 @@ class WasmRuntime {
     if (rets.ref.length == 0) {
       return wasmerValKindVoid;
     } else if (rets.ref.length > 1) {
-      throw _WasmRuntimeErrorImpl('Multiple return values are not supported');
+      throw delegate.errorFactory('Multiple return values are not supported');
     }
     return bindings.valtype_kind(rets.ref.data[0]);
   }
@@ -241,25 +255,22 @@ class WasmRuntime {
     return bindings.memory_as_extern(memory);
   }
 
-  Pointer<WasmerMemory> newMemory(
-    Object owner,
+  MapEntry<Pointer<WasmerMemorytype>, Pointer<WasmerMemory>> newMemoryRaw(
     int pages,
     int? maxPages,
   ) {
-    var limPtr = calloc<WasmerLimits>();
+    final limPtr = calloc<WasmerLimits>();
     limPtr.ref.min = pages;
     limPtr.ref.max = maxPages ?? wasmLimitsMaxDefault;
-    var memType = bindings.memorytype_new(limPtr);
+    final memType = bindings.memorytype_new(limPtr);
     calloc.free(limPtr);
     _checkNotEqual(memType, nullptr, 'Failed to create memory type.');
-    delegate.finalizeMemorytype(owner, memType);
-    var memory = _checkNotEqual(
+    final memory = _checkNotEqual(
       bindings.memory_new(store, memType),
       nullptr,
       'Failed to create memory.',
     );
-    delegate.finalizeMemory(owner, memory);
-    return memory;
+    return MapEntry(memType, memory);
   }
 
   void growMemory(Pointer<WasmerMemory> memory, int deltaPages) {
@@ -302,7 +313,7 @@ class WasmRuntime {
   Pointer<WasmerVal> newValue(int type, dynamic val) {
     final wasmerVal = calloc<WasmerVal>();
     if (!wasmerVal.ref.fill(type, val)) {
-      throw _WasmRuntimeErrorImpl(
+      throw delegate.errorFactory(
         'Bad value for WASM type: ${wasmerValKindName(type)}',
       );
     }
@@ -430,20 +441,12 @@ class WasmRuntime {
     );
   }
 
-  String _getLastError() {
-    var length = bindings.wasmer_last_error_length();
-    var buf = calloc<Uint8>(length);
-    bindings.wasmer_last_error_message(buf, length);
-    var message = utf8.decode(buf.asTypedList(length));
-    calloc.free(buf);
-    return message;
-  }
-
-  T _checkNotEqual<T>(T x, T y, String errorMessage) {
-    if (x == y) {
-      throw _WasmRuntimeErrorImpl('$errorMessage\n${_getLastError()}'.trim());
-    }
-    return x;
+  T _checkNotEqual<T>(
+    T x,
+    T y,
+    String errorMessage,
+  ) {
+    return _checkNotEqualGlobal(x, y, errorMessage, delegate);
   }
 
   String _getImportExportString(
@@ -468,6 +471,28 @@ class WasmRuntime {
     } else {
       return '$kindName: $name';
     }
+  }
+}
+
+T _checkNotEqualGlobal<T>(
+  T x,
+  T y,
+  String errorMessage,
+  WasmRuntimeDelegate delegate,
+) {
+  String _getLastError() {
+    final length = delegate.lib.wasmer_last_error_length();
+    final buf = calloc<Uint8>(length);
+    delegate.lib.wasmer_last_error_message(buf, length);
+    final message = utf8.decode(buf.asTypedList(length));
+    calloc.free(buf);
+    return message;
+  }
+
+  if (x == y) {
+    throw delegate.errorFactory('$errorMessage\n${_getLastError()}'.trim());
+  } else {
+    return x;
   }
 }
 
@@ -548,18 +573,7 @@ String getSignatureString(
   int returnType,
 ) {
   return '${wasmerValKindName(returnType)} '
-    '$name(${argTypes.map(wasmerValKindName).join(', ')})';
-}
-
-class _WasmRuntimeErrorImpl extends Error {
-  final String message;
-
-  _WasmRuntimeErrorImpl(
-    this.message,
-  ) : assert(message.trim() == message);
-
-  @override
-  String toString() => 'WasmRuntimeError: $message';
+      '$name(${argTypes.map(wasmerValKindName).join(', ')})';
 }
 
 // wasm_valkind_enum

@@ -496,10 +496,6 @@ class WasmRuntimeBindings {
         NativeWasmerWasmerLastErrorMessageFn, WasmerWasmerLastErrorMessageFn>(
       'wasmer_last_error_message',
     );
-
-    if (Dart_InitializeApiDL(NativeApi.initializeApiDLData) != 0) {
-      throw _WasmRuntimeErrorImpl('Failed to initialize Dart API');
-    }
   }
 }
 
