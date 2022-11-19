@@ -17,11 +17,30 @@ WasmRuntime wasmRuntimeFactory(
 }
 
 abstract class WasmRuntimeDelegate {
+  // TODO: this should only contain the wasmer bindings.
   WasmRuntimeBindings get lib;
 
   Exception trapExceptionFactory(
     String message,
   );
+
+  void finalizeEngine(Object owner, Pointer<WasmerEngine> ptr);
+
+  void finalizeStore(Object owner, Pointer<WasmerStore> ptr);
+
+  void finalizeModule(Object owner, Pointer<WasmerModule> ptr);
+
+  void finalizeTrap(Object owner, Pointer<WasmerTrap> ptr);
+
+  void finalizeInstance(Object owner, Pointer<WasmerInstance> ptr);
+
+  void finalizeMemorytype(Object owner, Pointer<WasmerMemorytype> ptr);
+
+  void finalizeMemory(Object owner, Pointer<WasmerMemory> ptr);
+
+  void finalizeFunc(Object owner, Pointer<WasmerFunc> ptr);
+
+  void finalizeGlobal(Object owner, Pointer<WasmerGlobal> ptr);
 }
 
 class WasmRuntime {
@@ -36,13 +55,13 @@ class WasmRuntime {
       nullptr,
       'Failed to initialize Wasm engine.',
     );
-    bindings.set_finalizer_for_engine(this, engine);
+    delegate.finalizeEngine(this, engine);
     store = _checkNotEqual(
       bindings.store_new(engine),
       nullptr,
       'Failed to create Wasm store.',
     );
-    bindings.set_finalizer_for_store(this, store);
+    delegate.finalizeStore(this, store);
   }
 
   WasmRuntimeBindings get bindings {
@@ -65,7 +84,7 @@ class WasmRuntime {
       ..free(dataVec);
 
     _checkNotEqual(modulePtr, nullptr, 'Wasm module compilation failed.');
-    bindings.set_finalizer_for_module(owner, modulePtr);
+    delegate.finalizeModule(owner, modulePtr);
     return modulePtr;
   }
 
@@ -161,7 +180,7 @@ class WasmRuntime {
     maybeThrowTrap(trap.value, 'module initialization function');
     calloc.free(trap);
     _checkNotEqual(inst, nullptr, 'Wasm module instantiation failed.');
-    bindings.set_finalizer_for_instance(owner, inst);
+    delegate.finalizeInstance(owner, inst);
     return inst;
   }
 
@@ -230,13 +249,13 @@ class WasmRuntime {
     var memType = bindings.memorytype_new(limPtr);
     calloc.free(limPtr);
     _checkNotEqual(memType, nullptr, 'Failed to create memory type.');
-    bindings.set_finalizer_for_memorytype(owner, memType);
+    delegate.finalizeMemorytype(owner, memType);
     var memory = _checkNotEqual(
       bindings.memory_new(store, memType),
       nullptr,
       'Failed to create memory.',
     );
-    bindings.set_finalizer_for_memory(owner, memory);
+    delegate.finalizeMemory(owner, memory);
     return memory;
   }
 
@@ -273,7 +292,7 @@ class WasmRuntime {
       finalizer.cast(),
     );
     _checkNotEqual(f, nullptr, 'Failed to create function.');
-    bindings.set_finalizer_for_func(owner, f);
+    delegate.finalizeFunc(owner, f);
     return f;
   }
 
@@ -294,7 +313,7 @@ class WasmRuntime {
   ) {
     final wasmerVal = newValue(getGlobalKind(globalType), val);
     final global = bindings.global_new(store, globalType, wasmerVal);
-    bindings.set_finalizer_for_global(owner, global);
+    delegate.finalizeGlobal(owner, global);
     calloc.free(wasmerVal);
     return global;
   }
@@ -350,7 +369,7 @@ class WasmRuntime {
       ..free(bytes);
     _checkNotEqual(trap, nullptr, 'Failed to create trap.');
     var entry = _WasmTrapsEntry(exception);
-    bindings.set_finalizer_for_trap(entry, trap);
+    delegate.finalizeTrap(entry, trap);
     _traps[msg] = entry;
     return trap;
   }

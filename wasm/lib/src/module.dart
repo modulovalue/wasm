@@ -43,6 +43,51 @@ class _WasmRuntimeDelegateImpl implements WasmRuntimeDelegate {
       message,
     );
   }
+
+  @override
+  void finalizeEngine(Object owner, Pointer<WasmerEngine> ptr) {
+    lib.set_finalizer_for_engine(owner, ptr);
+  }
+
+  @override
+  void finalizeStore(Object owner, Pointer<WasmerStore> ptr) {
+    lib.set_finalizer_for_store(owner, ptr);
+  }
+
+  @override
+  void finalizeModule(Object owner, Pointer<WasmerModule> ptr) {
+    lib.set_finalizer_for_module(owner, ptr);
+  }
+
+  @override
+  void finalizeTrap(Object owner, Pointer<WasmerTrap> ptr) {
+    lib.set_finalizer_for_trap(owner, ptr);
+  }
+
+  @override
+  void finalizeInstance(Object owner, Pointer<WasmerInstance> ptr) {
+    lib.set_finalizer_for_instance(owner, ptr);
+  }
+
+  @override
+  void finalizeMemorytype(Object owner, Pointer<WasmerMemorytype> ptr) {
+    lib.set_finalizer_for_memorytype(owner, ptr);
+  }
+
+  @override
+  void finalizeMemory(Object owner, Pointer<WasmerMemory> ptr) {
+    lib.set_finalizer_for_memory(owner, ptr);
+  }
+
+  @override
+  void finalizeFunc(Object owner, Pointer<WasmerFunc> ptr) {
+    lib.set_finalizer_for_func(owner, ptr);
+  }
+
+  @override
+  void finalizeGlobal(Object owner, Pointer<WasmerGlobal> ptr) {
+    lib.set_finalizer_for_global(owner, ptr);
+  }
 }
 
 final WasmRuntimeBindings _wasmBindings = () {
