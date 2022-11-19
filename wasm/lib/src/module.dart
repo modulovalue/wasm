@@ -26,11 +26,18 @@ WasmModule wasmModuleCompileSync(
 }
 
 final WasmRuntime _runtime = wasmRuntimeFactory(
-  loadWasmerDynamicLibrary(),
+  _wasmBindings,
   (final message) => _WasmModuleTrapExceptionImpl(
     message,
   ),
 );
+
+final WasmRuntimeBindings _wasmBindings = () {
+  final bindings = WasmRuntimeBindings();
+  final lib = loadWasmerDynamicLibrary();
+  bindings.initBindings(lib);
+  return bindings;
+}();
 
 class _WasmModule implements WasmModule {
   late final Pointer<WasmerModule> _module;

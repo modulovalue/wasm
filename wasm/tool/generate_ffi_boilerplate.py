@@ -407,9 +407,11 @@ runtimeText = '''// Copyright (c) 2020, the Dart project authors.  Please see th
 
 part of 'runtime.dart';
 
-mixin _WasmRuntimeGeneratedMixin {
+class WasmRuntimeBindings {
 /* <RUNTIME_MEMB> */
-
+  
+  WasmRuntimeBindings();
+  
   void initBindings(DynamicLibrary _lib) {
 /* <RUNTIME_LOAD> */
 

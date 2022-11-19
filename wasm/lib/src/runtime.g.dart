@@ -12,7 +12,7 @@
 
 part of 'runtime.dart';
 
-mixin _WasmRuntimeGeneratedMixin {
+class WasmRuntimeBindings {
   late final WasmerDartInitializeApiDLFn _Dart_InitializeApiDL;
   late final WasmerSetFinalizerForEngineFn _set_finalizer_for_engine;
   late final WasmerSetFinalizerForFuncFn _set_finalizer_for_func;
@@ -110,6 +110,8 @@ mixin _WasmRuntimeGeneratedMixin {
   late final WasmerValtypeVecNewUninitializedFn _valtype_vec_new_uninitialized;
   late final WasmerWasmerLastErrorLengthFn _wasmer_last_error_length;
   late final WasmerWasmerLastErrorMessageFn _wasmer_last_error_message;
+
+  WasmRuntimeBindings();
 
   void initBindings(DynamicLibrary _lib) {
     _Dart_InitializeApiDL = _lib.lookupFunction<

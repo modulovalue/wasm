@@ -11,26 +11,26 @@ import 'package:ffi/ffi.dart';
 part 'runtime.g.dart';
 
 WasmRuntime wasmRuntimeFactory(
-  DynamicLibrary lib,
+  WasmRuntimeBindings lib,
   Exception Function(String message) trapExceptionFactory,
 ) {
   return WasmRuntime._(lib, trapExceptionFactory);
 }
 
-class WasmRuntime with _WasmRuntimeGeneratedMixin {
+class WasmRuntime {
   final _traps = <String, _WasmTrapsEntry>{};
   late final Pointer<WasmerEngine> _engine;
   late final Pointer<WasmerStore> _store;
   final Exception Function(String message) trapExceptionFactory;
+  final WasmRuntimeBindings bindings;
 
-  WasmRuntime._(DynamicLibrary lib, this.trapExceptionFactory) {
-    initBindings(lib);
-    _engine = _engine_new();
+  WasmRuntime._(this.bindings, this.trapExceptionFactory) {
+    _engine = bindings._engine_new();
     _checkNotEqual(_engine, nullptr, 'Failed to initialize Wasm engine.');
-    _set_finalizer_for_engine(this, _engine);
-    _store = _store_new(_engine);
+    bindings._set_finalizer_for_engine(this, _engine);
+    _store = bindings._store_new(_engine);
     _checkNotEqual(_store, nullptr, 'Failed to create Wasm store.');
-    _set_finalizer_for_store(this, _store);
+    bindings._set_finalizer_for_store(this, _store);
   }
 
   Pointer<WasmerModule> compile(Object owner, Uint8List data) {
@@ -42,14 +42,14 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     dataVec.ref.data = dataPtr;
     dataVec.ref.length = data.length;
 
-    final modulePtr = _module_new(_store, dataVec);
+    final modulePtr = bindings._module_new(_store, dataVec);
 
     calloc
       ..free(dataPtr)
       ..free(dataVec);
 
     _checkNotEqual(modulePtr, nullptr, 'Wasm module compilation failed.');
-    _set_finalizer_for_module(owner, modulePtr);
+    bindings._set_finalizer_for_module(owner, modulePtr);
     return modulePtr;
   }
 
@@ -58,22 +58,22 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     Pointer<WasmerExterntype> extern,
   ) {
     if (kind == wasmerExternKindFunction) {
-      return _externtype_as_functype(extern);
+      return bindings._externtype_as_functype(extern);
     } else if (kind == wasmerExternKindGlobal) {
-      return _externtype_as_globaltype(extern);
+      return bindings._externtype_as_globaltype(extern);
     }
     return nullptr;
   }
 
   List<WasmExportDescriptor> exportDescriptors(Pointer<WasmerModule> module) {
     var exportsVec = calloc<WasmerExporttypeVec>();
-    _module_exports(module, exportsVec);
+    bindings._module_exports(module, exportsVec);
     var exps = <WasmExportDescriptor>[];
     for (var i = 0; i < exportsVec.ref.length; ++i) {
       final exp = exportsVec.ref.data[i];
-      final extern = _exporttype_type(exp);
-      final kind = _externtype_kind(extern);
-      final name = _exporttype_name(exp).ref.toString();
+      final extern = bindings._exporttype_type(exp);
+      final kind = bindings._externtype_kind(extern);
+      final name = bindings._exporttype_name(exp).ref.toString();
       final type = _externTypeToFuncOrGlobalType(kind, extern);
       exps.add(
         WasmExportDescriptor._(
@@ -90,14 +90,14 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
 
   List<WasmImportDescriptor> importDescriptors(Pointer<WasmerModule> module) {
     var importsVec = calloc<WasmerImporttypeVec>();
-    _module_imports(module, importsVec);
+    bindings._module_imports(module, importsVec);
     var imps = <WasmImportDescriptor>[];
     for (var i = 0; i < importsVec.ref.length; ++i) {
       final imp = importsVec.ref.data[i];
-      final extern = _importtype_type(imp);
-      final kind = _externtype_kind(extern);
-      final moduleName = _importtype_module(imp).ref.toString();
-      final name = _importtype_name(imp).ref.toString();
+      final extern = bindings._importtype_type(imp);
+      final kind = bindings._externtype_kind(extern);
+      final moduleName = bindings._importtype_module(imp).ref.toString();
+      final name = bindings._importtype_name(imp).ref.toString();
       final type = _externTypeToFuncOrGlobalType(kind, extern);
       imps.add(
         WasmImportDescriptor._(
@@ -121,9 +121,9 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
       // finalizer on the _WasmTrapsEntry. Traps can also be created by WASM
       // code, and in that case we delete them in this function.
       final trapMessage = calloc<WasmerByteVec>();
-      _trap_message(trap, trapMessage);
+      bindings._trap_message(trap, trapMessage);
       final message = trapMessage.ref.toString();
-      _byte_vec_delete(trapMessage);
+      bindings._byte_vec_delete(trapMessage);
       calloc.free(trapMessage);
       final entry = _traps.remove(message);
       if (entry == null) {
@@ -141,51 +141,51 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     Pointer<WasmerExternVec> imports,
   ) {
     var trap = calloc<Pointer<WasmerTrap>>()..value = nullptr;
-    var inst = _instance_new(_store, module, imports, trap);
+    var inst = bindings._instance_new(_store, module, imports, trap);
     maybeThrowTrap(trap.value, 'module initialization function');
     calloc.free(trap);
     _checkNotEqual(inst, nullptr, 'Wasm module instantiation failed.');
-    _set_finalizer_for_instance(owner, inst);
+    bindings._set_finalizer_for_instance(owner, inst);
     return inst;
   }
 
   // Clean up the exports after use, with deleteExports.
   Pointer<WasmerExternVec> exports(Pointer<WasmerInstance> instancePtr) {
     var exports = calloc<WasmerExternVec>();
-    _instance_exports(instancePtr, exports);
+    bindings._instance_exports(instancePtr, exports);
     return exports;
   }
 
   void deleteExports(Pointer<WasmerExternVec> exports) {
-    _extern_vec_delete(exports);
+    bindings._extern_vec_delete(exports);
     calloc.free(exports);
   }
 
-  int externKind(Pointer<WasmerExtern> extern) => _extern_kind(extern);
+  int externKind(Pointer<WasmerExtern> extern) => bindings._extern_kind(extern);
 
   Pointer<WasmerFunc> externToFunction(Pointer<WasmerExtern> extern) =>
-      _extern_as_func(extern);
+      bindings._extern_as_func(extern);
 
   Pointer<WasmerExtern> functionToExtern(Pointer<WasmerFunc> func) =>
-      _func_as_extern(func);
+      bindings._func_as_extern(func);
 
   List<int> getArgTypes(Pointer<WasmerFunctype> funcType) {
     var types = <int>[];
-    var args = _functype_params(funcType);
+    var args = bindings._functype_params(funcType);
     for (var i = 0; i < args.ref.length; ++i) {
-      types.add(_valtype_kind(args.ref.data[i]));
+      types.add(bindings._valtype_kind(args.ref.data[i]));
     }
     return types;
   }
 
   int getReturnType(Pointer<WasmerFunctype> funcType) {
-    var rets = _functype_results(funcType);
+    var rets = bindings._functype_results(funcType);
     if (rets.ref.length == 0) {
       return wasmerValKindVoid;
     } else if (rets.ref.length > 1) {
       throw _WasmRuntimeErrorImpl('Multiple return values are not supported');
     }
-    return _valtype_kind(rets.ref.data[0]);
+    return bindings._valtype_kind(rets.ref.data[0]);
   }
 
   void call(
@@ -194,14 +194,14 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     Pointer<WasmerValVec> results,
     String source,
   ) {
-    maybeThrowTrap(_func_call(func, args, results), source);
+    maybeThrowTrap(bindings._func_call(func, args, results), source);
   }
 
   Pointer<WasmerMemory> externToMemory(Pointer<WasmerExtern> extern) =>
-      _extern_as_memory(extern);
+      bindings._extern_as_memory(extern);
 
   Pointer<WasmerExtern> memoryToExtern(Pointer<WasmerMemory> memory) =>
-      _memory_as_extern(memory);
+      bindings._memory_as_extern(memory);
 
   Pointer<WasmerMemory> newMemory(
     Object owner,
@@ -211,31 +211,36 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     var limPtr = calloc<WasmerLimits>();
     limPtr.ref.min = pages;
     limPtr.ref.max = maxPages ?? wasmLimitsMaxDefault;
-    var memType = _memorytype_new(limPtr);
+    var memType = bindings._memorytype_new(limPtr);
     calloc.free(limPtr);
     _checkNotEqual(memType, nullptr, 'Failed to create memory type.');
-    _set_finalizer_for_memorytype(owner, memType);
+    bindings._set_finalizer_for_memorytype(owner, memType);
     var memory = _checkNotEqual(
-      _memory_new(_store, memType),
+      bindings._memory_new(_store, memType),
       nullptr,
       'Failed to create memory.',
     );
-    _set_finalizer_for_memory(owner, memory);
+    bindings._set_finalizer_for_memory(owner, memory);
     return memory;
   }
 
   void growMemory(Pointer<WasmerMemory> memory, int deltaPages) {
     _checkNotEqual(
-      _memory_grow(memory, deltaPages),
+      bindings._memory_grow(memory, deltaPages),
       0,
       'Failed to grow memory.',
     );
   }
 
-  int memoryLength(Pointer<WasmerMemory> memory) => _memory_size(memory);
+  int memoryLength(Pointer<WasmerMemory> memory) {
+    return bindings._memory_size(memory);
+  }
 
-  Uint8List memoryView(Pointer<WasmerMemory> memory) =>
-      _memory_data(memory).asTypedList(_memory_data_size(memory));
+  Uint8List memoryView(Pointer<WasmerMemory> memory) {
+    return bindings._memory_data(memory).asTypedList(
+          bindings._memory_data_size(memory),
+        );
+  }
 
   Pointer<WasmerFunc> newFunc(
     Object owner,
@@ -244,7 +249,7 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     Pointer env,
     Pointer finalizer,
   ) {
-    var f = _func_new_with_env(
+    var f = bindings._func_new_with_env(
       _store,
       funcType,
       func.cast(),
@@ -252,7 +257,7 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
       finalizer.cast(),
     );
     _checkNotEqual(f, nullptr, 'Failed to create function.');
-    _set_finalizer_for_func(owner, f);
+    bindings._set_finalizer_for_func(owner, f);
     return f;
   }
 
@@ -272,30 +277,30 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     dynamic val,
   ) {
     final wasmerVal = newValue(getGlobalKind(globalType), val);
-    final global = _global_new(_store, globalType, wasmerVal);
-    _set_finalizer_for_global(owner, global);
+    final global = bindings._global_new(_store, globalType, wasmerVal);
+    bindings._set_finalizer_for_global(owner, global);
     calloc.free(wasmerVal);
     return global;
   }
 
   Pointer<WasmerGlobaltype> getGlobalType(Pointer<WasmerGlobal> global) =>
-      _global_type(global);
+      bindings._global_type(global);
 
   int getGlobalKind(Pointer<WasmerGlobaltype> globalType) =>
-      _valtype_kind(_globaltype_content(globalType));
+      bindings._valtype_kind(bindings._globaltype_content(globalType));
 
   int getGlobalMut(Pointer<WasmerGlobaltype> globalType) =>
-      _globaltype_mutability(globalType);
+      bindings._globaltype_mutability(globalType);
 
   Pointer<WasmerGlobal> externToGlobal(Pointer<WasmerExtern> extern) =>
-      _extern_as_global(extern);
+      bindings._extern_as_global(extern);
 
   Pointer<WasmerExtern> globalToExtern(Pointer<WasmerGlobal> global) =>
-      _global_as_extern(global);
+      bindings._global_as_extern(global);
 
   dynamic globalGet(Pointer<WasmerGlobal> global, int type) {
     final wasmerVal = newValue(type, 0);
-    _global_get(global, wasmerVal);
+    bindings._global_get(global, wasmerVal);
     final result = wasmerVal.ref.toDynamic;
     calloc.free(wasmerVal);
     return result;
@@ -303,7 +308,7 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
 
   void globalSet(Pointer<WasmerGlobal> global, int type, dynamic val) {
     final wasmerVal = newValue(type, val);
-    _global_set(global, wasmerVal);
+    bindings._global_set(global, wasmerVal);
     calloc.free(wasmerVal);
   }
 
@@ -323,13 +328,13 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
   Pointer<WasmerTrap> newTrap(Object exception) {
     final msg = 'dart:${exception.hashCode.toRadixString(36)}';
     final bytes = _allocateString(msg);
-    var trap = _trap_new(_store, bytes);
+    var trap = bindings._trap_new(_store, bytes);
     calloc
       ..free(bytes.ref.data)
       ..free(bytes);
     _checkNotEqual(trap, nullptr, 'Failed to create trap.');
     var entry = _WasmTrapsEntry(exception);
-    _set_finalizer_for_trap(entry, trap);
+    bindings._set_finalizer_for_trap(entry, trap);
     _traps[msg] = entry;
     return trap;
   }
@@ -337,22 +342,22 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
   Pointer<WasmerWasiConfig> newWasiConfig() {
     var name = calloc<Uint8>();
     name[0] = 0;
-    var config = _wasi_config_new(name);
+    var config = bindings._wasi_config_new(name);
     calloc.free(name);
     return _checkNotEqual(config, nullptr, 'Failed to create WASI config.');
   }
 
   void captureWasiStdout(Pointer<WasmerWasiConfig> config) {
-    _wasi_config_capture_stdout(config);
+    bindings._wasi_config_capture_stdout(config);
   }
 
   void captureWasiStderr(Pointer<WasmerWasiConfig> config) {
-    _wasi_config_capture_stderr(config);
+    bindings._wasi_config_capture_stderr(config);
   }
 
   Pointer<WasmerWasiEnv> newWasiEnv(Pointer<WasmerWasiConfig> config) =>
       _checkNotEqual(
-        _wasi_env_new(config),
+        bindings._wasi_env_new(config),
         nullptr,
         'Failed to create WASI environment.',
       );
@@ -363,22 +368,28 @@ class WasmRuntime with _WasmRuntimeGeneratedMixin {
     Pointer<WasmerExternVec> imports,
   ) {
     _checkNotEqual(
-      _wasi_get_imports(_store, mod, env, imports),
+      bindings._wasi_get_imports(_store, mod, env, imports),
       0,
       'Failed to fill WASI imports.',
     );
   }
 
-  Stream<List<int>> getWasiStdoutStream(Pointer<WasmerWasiEnv> env) =>
-      Stream.fromIterable(_WasiStreamIterable(env, _wasi_env_read_stdout));
+  Stream<List<int>> getWasiStdoutStream(Pointer<WasmerWasiEnv> env) {
+    return Stream.fromIterable(
+      _WasiStreamIterable(env, bindings._wasi_env_read_stdout),
+    );
+  }
 
-  Stream<List<int>> getWasiStderrStream(Pointer<WasmerWasiEnv> env) =>
-      Stream.fromIterable(_WasiStreamIterable(env, _wasi_env_read_stderr));
+  Stream<List<int>> getWasiStderrStream(Pointer<WasmerWasiEnv> env) {
+    return Stream.fromIterable(
+      _WasiStreamIterable(env, bindings._wasi_env_read_stderr),
+    );
+  }
 
   String _getLastError() {
-    var length = _wasmer_last_error_length();
+    var length = bindings._wasmer_last_error_length();
     var buf = calloc<Uint8>(length);
-    _wasmer_last_error_message(buf, length);
+    bindings._wasmer_last_error_message(buf, length);
     var message = utf8.decode(buf.asTypedList(length));
     calloc.free(buf);
     return message;
