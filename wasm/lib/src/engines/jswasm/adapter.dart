@@ -4,17 +4,16 @@
 
 import 'dart:typed_data';
 
-import '../engines/jswasm/adapter.dart' as impl;
-import '../wasm_api.dart';
+import '../../../wasm.dart';
 
 Future<WasmModule> wasmModuleCompileAsync(
   Uint8List data,
-) {
-  return impl.wasmModuleCompileAsync(data);
+) async {
+  throw Exception('The web is not supported yet.');
 }
 
 WasmModule wasmModuleCompileSync(
   Uint8List data,
 ) {
-  return impl.wasmModuleCompileSync(data);
+  throw Exception('The web is not supported yet.');
 }
